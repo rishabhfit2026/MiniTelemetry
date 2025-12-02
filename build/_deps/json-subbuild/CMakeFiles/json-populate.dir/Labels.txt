@@ -1,0 +1,14 @@
+# Target labels
+ json-populate
+# Source files and their labels
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/CMakeFiles/json-populate
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/CMakeFiles/json-populate.rule
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/CMakeFiles/json-populate-complete.rule
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-build.rule
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-configure.rule
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-download.rule
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-install.rule
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-mkdir.rule
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-patch.rule
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-test.rule
+/home/rishabh/projects/MiniTelemetry/build/_deps/json-subbuild/json-populate-prefix/src/json-populate-stamp/json-populate-update.rule

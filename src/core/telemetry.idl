@@ -1,0 +1,5 @@
+module Telemetry {
+    struct JsonMessage {
+        string payload;
+    };
+};
