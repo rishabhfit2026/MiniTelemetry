@@ -1,4 +1,5 @@
 module Telemetry {
+    @appendable
     struct JsonMessage {
         string payload;
     };

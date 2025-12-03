@@ -3,43 +3,59 @@ cmake_minimum_required(VERSION 3.15)
 find_package(CycloneDDS REQUIRED)
 find_package(Threads REQUIRED)
 
-# Generate IDL (CycloneDDS makes an INTERFACE library by default)
+# Generate IDL first
 idlc_generate(
     TARGET telemetry_idl_lib
     FILES telemetry.idl
 )
 
-# --- FIX: CycloneDDS created telemetry_idl_lib as INTERFACE.
-# --- Delete it and recreate a new STATIC library with same name.
+# Check the type of library CycloneDDS created
 get_target_property(_idl_type telemetry_idl_lib TYPE)
+
 if(_idl_type STREQUAL "INTERFACE_LIBRARY")
-    message(STATUS "Fixing CycloneDDS IDL target: converting INTERFACE -> STATIC")
-
-    # Save include dirs
+    message(STATUS "CycloneDDS created INTERFACE library, wrapping it...")
+    
+    # Get the generated source file location
+    get_target_property(_idl_sources telemetry_idl_lib INTERFACE_SOURCES)
+    
+    # Create a STATIC library that wraps the generated code
+    add_library(telemetry_idl_wrapper STATIC 
+        ${_idl_sources}
+    )
+    
+    # Get include directories from the INTERFACE library
     get_target_property(_idl_includes telemetry_idl_lib INTERFACE_INCLUDE_DIRECTORIES)
-
-    # Remove the bad INTERFACE target
-    unset(telemetry_idl_lib CACHE)
-    remove_library(telemetry_idl_lib) # ignore warning if any
-
-    # Create a REAL STATIC library
-    add_library(telemetry_idl_lib STATIC ${CMAKE_CURRENT_BINARY_DIR}/telemetry.c)
-
-    # Restore include dirs
-    target_include_directories(telemetry_idl_lib PUBLIC ${_idl_includes})
+    
+    # Apply include directories
+    target_include_directories(telemetry_idl_wrapper PUBLIC ${_idl_includes})
+    
+    # Link the INTERFACE library and DDS
+    target_link_libraries(telemetry_idl_wrapper 
+        PUBLIC 
+            CycloneDDS::ddsc
+            telemetry_idl_lib
+    )
+    
+    # Use the wrapper as our IDL library
+    set(IDL_LIBRARY telemetry_idl_wrapper)
+else()
+    # If it's already a proper library, just link DDS
+    target_link_libraries(telemetry_idl_lib PUBLIC CycloneDDS::ddsc)
+    set(IDL_LIBRARY telemetry_idl_lib)
 endif()
 
-# Link DDS
-target_link_libraries(telemetry_idl_lib PUBLIC CycloneDDS::ddsc)
-
-# Core library
-add_library(telemetry_core STATIC)
+# Core library with actual source files
+add_library(telemetry_core STATIC
+    telemetry_core.cpp
+    thread_safe_queue.cpp
+)
 
 target_include_directories(telemetry_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}  # For generated IDL headers
 )
 
 target_link_libraries(telemetry_core PUBLIC
-    telemetry_idl_lib
+    ${IDL_LIBRARY}
     Threads::Threads
 )

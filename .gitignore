@@ -1,1 +1,15 @@
-/build
+# Build artifacts
+build/
+_deps/
+*.o
+*.a
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

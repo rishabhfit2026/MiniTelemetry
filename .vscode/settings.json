@@ -1,3 +1,5 @@
 {
-    "cmake.sourceDirectory": "/mnt/d/MiniTelemetry"
+    "cmake.sourceDirectory": "${workspaceFolder}",
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.configureOnOpen": true
 }
