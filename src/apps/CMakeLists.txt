@@ -11,7 +11,7 @@ add_executable(sensor_hub_process
 
 target_include_directories(sensor_hub_process PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core
-    ${CMAKE_BINARY_DIR}/src/core  # For generated IDL headers
+    ${CMAKE_BINARY_DIR}/src/core
 )
 
 target_link_libraries(sensor_hub_process PRIVATE
@@ -28,7 +28,7 @@ add_executable(monitor_process
 
 target_include_directories(monitor_process PRIVATE
     ${CMAKE_SOURCE_DIR}/src/core
-    ${CMAKE_BINARY_DIR}/src/core  # For generated IDL headers
+    ${CMAKE_BINARY_DIR}/src/core
 )
 
 target_link_libraries(monitor_process PRIVATE
@@ -38,7 +38,24 @@ target_link_libraries(monitor_process PRIVATE
     Threads::Threads
 )
 
-# Install targets (optional)
-install(TARGETS sensor_hub_process monitor_process
+# ========== LOGGER PROCESS (NEW!) ==========
+add_executable(logger_process
+    logger.cpp
+)
+
+target_include_directories(logger_process PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/core
+    ${CMAKE_BINARY_DIR}/src/core
+)
+
+target_link_libraries(logger_process PRIVATE
+    telemetry_core
+    CycloneDDS::ddsc
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+)
+
+# Install targets
+install(TARGETS sensor_hub_process monitor_process logger_process
     RUNTIME DESTINATION bin
 )
