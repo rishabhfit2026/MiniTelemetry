@@ -22,7 +22,7 @@ A production-grade multi-process C++ telemetry system demonstrating sensor data 
 │  │  Queue ─────┤    │                                               │
 │  │             │    │                                               │
 │  │  DDS Writer ├────┼──────────────┬──────────────────────┐        │
-│  └──────────────────┘              │                      │        │
+│  └──────────────────┘              │                      │        │ 
 │                                    │                      │        │
 │                                    ▼                      ▼        │
 │                          ┌──────────────────┐  ┌──────────────────┐

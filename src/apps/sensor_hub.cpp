@@ -6,6 +6,7 @@
 #include <random>
 #include <cstring>
 #include <cstdlib>
+#include <csignal>
 #include <map>
 #include <mutex>
 
@@ -34,18 +35,49 @@ int g_artificial_delay_ms = 0;
 std::map<int, uint64_t> g_sensor_sequences;
 std::mutex g_sequence_mutex;
 
-// This function runs inside a background thread
+// Signal handler for graceful shutdown
+void signal_handler(int signal) {
+    std::cout << "\n[Sensor Hub] Caught signal " << signal << ", shutting down...\n";
+    g_running = false;
+    g_data_queue.stop();
+}
+
+// Sensor thread function - each sensor generates different data
 void sensor_thread_func(int id) {
+    //1.setup random number generations
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<> dis(20.0, 30.0);
+    
+    // Different sensors simulate different physical quantities
+    std::uniform_real_distribution<> dis;
+    std::string sensor_type;
+    
+    switch(id) {
+        case 0:  // Temperature sensor (°C)
+            dis = std::uniform_real_distribution<>(20.0, 30.0);
+            sensor_type = "Temperature";
+            break;
+        case 1:  // Pressure sensor (hPa) 
+            dis = std::uniform_real_distribution<>(1000.0, 1020.0);
+            sensor_type = "Pressure";
+            break;
+        case 2:  // Humidity sensor (%)
+            dis = std::uniform_real_distribution<>(40.0, 60.0);
+            sensor_type = "Humidity";
+            break;
+        default:
+            dis = std::uniform_real_distribution<>(0.0, 100.0);
+            sensor_type = "Generic";
+    }
 
-    std::cout << "[Thread] Sensor " << id << " started\n";
+    std::cout << "[Thread] Sensor " << id << " (" << sensor_type << ") started\n";
 
     while(g_running) {
         SensorData data;
         data.id = id;
-        data.value = dis(gen);
+        //generate the fake values
+        data.value = dis(gen);  // Random value within sensor's range
+        //generate the timstamp
         data.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()
         ).count();
@@ -57,21 +89,26 @@ void sensor_thread_func(int id) {
         std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
     }
     
-    std::cout << "[Thread] Sensor " << id << " stopped\n";
+    std::cout << "[Thread] Sensor " << id << " (" << sensor_type << ") stopped\n";
 }
 
 void print_usage(const char* prog_name) {
     std::cout << "Usage: " << prog_name << " [OPTIONS]\n";
     std::cout << "Options:\n";
     std::cout << "  --delay <ms>     Add artificial delay to sensor threads (for testing race conditions)\n";
-    std::cout << "  --duration <sec> Run duration in seconds (default: 10)\n";
+    std::cout << "  --duration <sec> Run duration in seconds (default: infinite, use Ctrl+C to stop)\n";
     std::cout << "  --help           Show this help message\n";
     std::cout << "\nExample:\n";
-    std::cout << "  " << prog_name << " --delay 50 --duration 15\n";
+    std::cout << "  " << prog_name << " --delay 50 --duration 60\n";
+    std::cout << "  " << prog_name << "  # Runs indefinitely until Ctrl+C\n";
 }
 
 int main(int argc, char** argv) {
-    int run_duration_sec = 10;
+    int run_duration_sec = -1;  // -1 = infinite by default
+    
+    // Setup signal handlers
+    std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
     
     // Parse command line arguments
     for (int i = 1; i < argc; i++) {
@@ -94,6 +131,10 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "[Sensor Hub] Starting...\n";
+    
+    if (run_duration_sec == -1) {
+        std::cout << "[Config] Running indefinitely (press Ctrl+C to stop)\n";
+    }
 
     // ========== DDS INITIALIZATION ==========
     dds_entity_t participant = dds_create_participant(DDS_DOMAIN_DEFAULT, NULL, NULL);
@@ -120,7 +161,7 @@ int main(int argc, char** argv) {
     // Set QoS for reliable delivery with larger history
     dds_qos_t *qos = dds_create_qos();
     dds_qset_reliability(qos, DDS_RELIABILITY_RELIABLE, DDS_SECS(10));
-    dds_qset_history(qos, DDS_HISTORY_KEEP_LAST, 100);  // Increased from 10 to 100
+    dds_qset_history(qos, DDS_HISTORY_KEEP_LAST, 100);
 
     dds_entity_t writer = dds_create_writer(participant, topic, qos, NULL);
     dds_delete_qos(qos);
@@ -139,6 +180,7 @@ int main(int argc, char** argv) {
     }
 
     // ========== START SENSOR THREADS ==========
+    std::cout << "[Sensor Hub] Starting 3 sensor threads...\n";
     std::vector<std::thread> sensors;
     for(int i = 0; i < 3; ++i) {
         sensors.emplace_back(sensor_thread_func, i);
@@ -167,15 +209,17 @@ int main(int argc, char** argv) {
             j["id"] = incoming_data.id;
             j["value"] = incoming_data.value;
             j["timestamp"] = incoming_data.timestamp;
-            j["sequence"] = sequence;  // ← PER-SENSOR SEQUENCE
-            
-            std::string json_str = j.dump();
+            j["sequence"] = sequence;
+
+
+            //serilization : COnert the in-memory json object 'j' into a string 
+            std::string json_str = j.dump();//<<--cool this is serialization step Mr.
 
             // Create DDS message
             Telemetry_JsonMessage msg;
             msg.payload = dds_string_dup(json_str.c_str());
 
-            // Publish via DDS
+            // Publish via DDS-
             int ret = dds_write(writer, &msg);
             if (ret == DDS_RETCODE_OK) {
                 g_message_count++;
@@ -197,13 +241,15 @@ int main(int argc, char** argv) {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
-        // Check timeout
-        auto elapsed = std::chrono::steady_clock::now() - start_time;
-        if (elapsed > std::chrono::seconds(run_duration_sec)) {
-            std::cout << "[Main] Timeout reached (" << run_duration_sec 
-                      << " seconds), shutting down...\n";
-            g_running = false;
-            g_data_queue.stop();
+        // Check timeout (if duration was specified)
+        if (run_duration_sec > 0) {
+            auto elapsed = std::chrono::steady_clock::now() - start_time;
+            if (elapsed > std::chrono::seconds(run_duration_sec)) {
+                std::cout << "[Main] Timeout reached (" << run_duration_sec 
+                          << " seconds), shutting down...\n";
+                g_running = false;
+                g_data_queue.stop();
+            }
         }
     }
 

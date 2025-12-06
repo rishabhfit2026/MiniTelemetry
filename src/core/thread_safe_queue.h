@@ -7,8 +7,8 @@
 template <typename T>
 class ThreadSafeQueue {
 private:
-    std::queue<T> queue_;
-    mutable std::mutex mutex_;
+    std::queue<T> queue_;//the data container 
+    mutable std::mutex mutex_;//FOr locking access
     std::condition_variable cond_var_;
     std::atomic<bool> stopped_{false}; // Flag to signal shutdown
 
